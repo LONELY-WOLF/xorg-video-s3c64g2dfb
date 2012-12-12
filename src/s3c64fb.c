@@ -31,7 +31,7 @@
 
 _X_EXPORT DriverRec S3C64FB =
 {
-	VERSION,
+	S3C64FB_VERSION,
 	S3C64FB_DRIVER_NAME,
 	S3C64FBIdentify,
 	S3C64FBProbe,
@@ -143,6 +143,61 @@ static Bool S3C64FBProbe(DriverPtr drv, int flags)
 		return FALSE;
 	}
 	xf86AddBusDeviceToConfigure(S3C64FB_DRIVER_NAME, BUS_NONE, NULL, 0);
+
+	pScrn = xf86AllocateScreen(drv, 0);
+
+	if (!pScrn)
+	{
+		return FALSE;
+	}
+
+	if (devSections)
+	{
+		int entity = xf86ClaimNoSlot(drv, 0, devSections[0], TRUE);
+		xf86AddEntityToScreen(pScrn, entity);
+	}
+
+	foundScreen = TRUE;
+
+	pScrn->driverVersion = S3C64FB_VERSION;
+	pScrn->driverName    = (char *)S3C64FB_DRIVER_NAME;
+	pScrn->name          = (char *)S3C64FB_NAME;
+	pScrn->Probe         = S3C64FBProbe;
+	pScrn->PreInit       = S3C64FBPreInit;
+	pScrn->ScreenInit    = S3C64FBScreenInit;
+	pScrn->SwitchMode    = S3C64FBSwitchMode;
+	pScrn->AdjustFrame   = S3C64FBAdjustFrame;
+	pScrn->EnterVT       = S3C64FBEnterVT;
+	pScrn->LeaveVT       = S3C64FBLeaveVT;
+	pScrn->FreeScreen    = S3C64FBFreeScreen;
+
+	free(devSections);
+	return foundScreen;
+}
+
+static Bool S3C64FBPreInit(ScrnInfoPtr pScrn, int flags)
+{
+	S3C64FBPtr pS3C64FB;
+	int default_depth, fbbpp;
+
+	TRACE_ENTER();
+
+	if (pScrn->numEntities != 1)
+	{
+		return FALSE;
+	}
+
+	S3C64FBGetRec(pScrn);
+	pS3C64FB = S3C64FBPTR(pScrn);
+
+	pEnt = xf86GetEntityInfo(pScrn->entityList[0]);
+	pS3C64FB->pEntityInfo = pEnt;
+
+	pScrn->monitor = pScrn->confScreen->monitor;////////////////////
+
+	/* Get the current depth, and set it for XFree86: */
+	default_depth = 24;  /* TODO: get from kernel */
+	fbbpp = 32;  /* TODO: get from kernel */
 
 
 

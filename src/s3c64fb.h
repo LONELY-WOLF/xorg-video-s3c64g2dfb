@@ -28,7 +28,7 @@
 #include "xf86_OSproc.h"
 //#include "xf86Resources.h"
 
-#define VERSION					1
+#define S3C64FB_VERSION			1
 #define S3C64FB_NAME			"s3c64fb" /* the name used to prefix messages */
 #define S3C64FB_DRIVER_NAME		"s3c64fb" /* the driver name as used in config file */
 #define S3C64FB_MAJOR_VERSION	0
