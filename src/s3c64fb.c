@@ -193,12 +193,123 @@ static Bool S3C64FBPreInit(ScrnInfoPtr pScrn, int flags)
 	pEnt = xf86GetEntityInfo(pScrn->entityList[0]);
 	pS3C64FB->pEntityInfo = pEnt;
 
-	pScrn->monitor = pScrn->confScreen->monitor;////////////////////
+	pScrn->monitor = pScrn->confScreen->monitor;
 
 	/* Get the current depth, and set it for XFree86: */
 	default_depth = 24;  /* TODO: get from kernel */
 	fbbpp = 32;  /* TODO: get from kernel */
 
+	if (!xf86SetDepthBpp(pScrn, default_depth, 0, fbbpp, Support32bppFb)) {
+		/* The above function prints an error message. */
+		goto fail;
+	}
+	xf86PrintDepthBpp(pScrn);
+
+	/* Set the color weight: */
+	if (!xf86SetWeight(pScrn, defaultWeight, defaultMask)) {
+		/* The above function prints an error message. */
+		goto fail;
+	}
+
+	/* Set the gamma: */
+	if (!xf86SetGamma(pScrn, defaultGamma)) {
+		/* The above function prints an error message. */
+		goto fail;
+	}
+
+	/* Visual init: */
+	if (!xf86SetDefaultVisual(pScrn, -1)) {
+		/* The above function prints an error message. */
+		goto fail;
+	}
+
+	/* We don't support 8-bit depths: */
+	if (pScrn->depth < 16) {
+		ERROR_MSG("The requested default visual (%s) has an unsupported "
+				"depth (%d).",
+				xf86GetVisualName(pScrn->defaultVisual), pScrn->depth);
+		goto fail;
+	}
+
+	/* Using a programmable clock: */
+	pScrn->progClock = TRUE;
+
+	/*
+	 * Process the "xorg.conf" file options:
+	 */
+	xf86CollectOptions(pScrn, NULL);
+	if (!(pS3C64FB->pOptionInfo = calloc(1, sizeof(S3C64FBOptions))))
+		return FALSE;
+	memcpy(pS3C64FB->pOptionInfo, S3C64FBOptions, sizeof(S3C64FBOptions));
+	xf86ProcessOptions(pScrn->scrnIndex, pS3C64FB->pEntityInfo->device->options,
+			pS3C64FB->pOptionInfo);
+
+	/* Determine if the user wants debug messages turned on: */
+	s3c64fbDebug = xf86ReturnOptValBool(pS3C64FB->pOptionInfo, OPTION_DEBUG, FALSE);
+
+	pS3C64FB->dri = xf86ReturnOptValBool(pS3C64FB->pOptionInfo, OPTION_DRI, TRUE);
+
+	/* Determine if user wants to disable hw mouse cursor: */
+	pS3C64FB->HWCursor = xf86ReturnOptValBool(pS3C64FB->pOptionInfo,
+			OPTION_HW_CURSOR, TRUE);
+	INFO_MSG("Using %s cursor", pS3C64FB->HWCursor ? "HW" : "SW");
+
+	/* Determine if the user wants to disable acceleration: */
+	pS3C64FB->NoAccel = xf86ReturnOptValBool(pS3C64FB->pOptionInfo,
+			OPTION_NO_ACCEL, FALSE);
+
+	xf86RandR12PreInit(pScrn);
+
+	/* Let XFree86 calculate or get (from command line) the display DPI: */
+	xf86SetDpi(pScrn, 0, 0);
+
+	/* Ensure we have a supported depth: */
+	switch (pScrn->bitsPerPixel) {
+	case 16:
+	case 24:
+	case 32:
+		break;
+	default:
+		ERROR_MSG("The requested number of bits per pixel (%d) is unsupported.",
+				pScrn->bitsPerPixel);
+		goto fail;
+	}
+
+
+	/* Load external sub-modules now: */
+
+	if (!(xf86LoadSubModule(pScrn, "dri2") &&
+			xf86LoadSubModule(pScrn, "exa") &&
+			xf86LoadSubModule(pScrn, "fb"))) {
+		goto fail;
+	}
+
+	if (xf86LoadSubModule(pScrn, SUB_MODULE_PVR)) {
+		INFO_MSG("Loaded the %s sub-module", SUB_MODULE_PVR);
+	} else {
+		INFO_MSG("Cannot load the %s sub-module", SUB_MODULE_PVR);
+		/* note that this is not fatal.. since IMG/PVR EXA module
+		 * is closed source, it is only optional.
+		 */
+		pS3C64FB->NoAccel = TRUE;  /* don't call InitPowerVREXA() */
+	}
+
+	TRACE_EXIT();
+	return TRUE;
+
+fail:
+	TRACE_EXIT();
+	S3C64FBFreeRec(pScrn);
+	return FALSE;
+}
+
+
+/**
+ * Initialize EXA and DRI2
+ */
+static void
+S3C64FBAccelInit(ScreenPtr pScreen)
+{
 
 
 
